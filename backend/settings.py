@@ -6,6 +6,7 @@ Production-ready configuration for Render deployment.
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+from urllib.parse import urlparse
 import os
 
 # --------------------------------------------------
@@ -18,7 +19,6 @@ load_dotenv()
 # --------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # --------------------------------------------------
 # SECURITY
 # --------------------------------------------------
@@ -29,8 +29,7 @@ if not SECRET_KEY:
 
 DEBUG = False
 
-ALLOWED_HOSTS = ["*"]  # Safe for Render initially
-
+ALLOWED_HOSTS = ["*"]  # OK for Render
 
 # --------------------------------------------------
 # APPLICATIONS
@@ -49,7 +48,6 @@ INSTALLED_APPS = [
     "core",
 ]
 
-
 # --------------------------------------------------
 # MIDDLEWARE
 # --------------------------------------------------
@@ -65,19 +63,16 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-
 # --------------------------------------------------
-# CORS CONFIG
+# CORS
 # --------------------------------------------------
 CORS_ALLOW_ALL_ORIGINS = True
-
 
 # --------------------------------------------------
 # URLS & WSGI
 # --------------------------------------------------
 ROOT_URLCONF = "backend.urls"
 WSGI_APPLICATION = "backend.wsgi.application"
-
 
 # --------------------------------------------------
 # TEMPLATES
@@ -98,21 +93,26 @@ TEMPLATES = [
     },
 ]
 
+# --------------------------------------------------
+# DATABASE (Render PostgreSQL)
+# --------------------------------------------------
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# --------------------------------------------------
-# DATABASE (Render / PostgreSQL)
-# --------------------------------------------------
+if not DATABASE_URL:
+    raise Exception("DATABASE_URL not set in environment variables")
+
+db_url = urlparse(DATABASE_URL)
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST"),
-        "PORT": os.getenv("DB_PORT", "5432"),
+        "NAME": db_url.path[1:],  # remove leading slash
+        "USER": db_url.username,
+        "PASSWORD": db_url.password,
+        "HOST": db_url.hostname,
+        "PORT": db_url.port or 5432,
     }
 }
-
 
 # --------------------------------------------------
 # PASSWORD VALIDATION
@@ -123,7 +123,6 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
-
 
 # --------------------------------------------------
 # DJANGO REST FRAMEWORK & JWT
@@ -143,7 +142,6 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-
 # --------------------------------------------------
 # INTERNATIONALIZATION
 # --------------------------------------------------
@@ -152,9 +150,8 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-
 # --------------------------------------------------
-# STATIC & MEDIA FILES (Render compatible)
+# STATIC & MEDIA FILES (Render + WhiteNoise)
 # --------------------------------------------------
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -164,12 +161,15 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
+# --------------------------------------------------
+# DEFAULT AUTO FIELD
+# --------------------------------------------------
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # --------------------------------------------------
-# EMAIL CONFIG (ENV ONLY)
+# EMAIL CONFIG
 # --------------------------------------------------
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
@@ -177,7 +177,6 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
-
 
 # --------------------------------------------------
 # GOOGLE AUTH
