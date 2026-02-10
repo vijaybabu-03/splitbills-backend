@@ -112,6 +112,7 @@ def google_login(request):
         idinfo = id_token.verify_oauth2_token(
             token,
             requests.Request(),
+            settings.GOOGLE_CLIENT_ID,  # 👈 IMPORTANT
         )
 
         if idinfo["iss"] not in [

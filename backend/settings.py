@@ -28,7 +28,8 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 
 
 ALLOWED_HOSTS = [
-    "splitbills-backend-1.onrender.com",
+    "splitbills-backend-u5cx.onrender.com",
+    ".onrender.com",
     "localhost",
     "127.0.0.1",
 ]
