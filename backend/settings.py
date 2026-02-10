@@ -1,6 +1,6 @@
 """
 Django settings for backend project.
-Production-ready configuration for Render deployment.
+Production-ready configuration for Render + local development.
 """
 
 from pathlib import Path
@@ -22,14 +22,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # --------------------------------------------------
 # SECURITY
 # --------------------------------------------------
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
-
-if not SECRET_KEY:
-    raise Exception("DJANGO_SECRET_KEY not set in environment variables")
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key")
 
 DEBUG = False
 
-ALLOWED_HOSTS = ["*"]  # OK for Render
+ALLOWED_HOSTS = ["*"]
 
 # --------------------------------------------------
 # APPLICATIONS
@@ -68,6 +65,10 @@ MIDDLEWARE = [
 # --------------------------------------------------
 CORS_ALLOW_ALL_ORIGINS = True
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.onrender.com",
+]
+
 # --------------------------------------------------
 # URLS & WSGI
 # --------------------------------------------------
@@ -94,25 +95,29 @@ TEMPLATES = [
 ]
 
 # --------------------------------------------------
-# DATABASE (Render PostgreSQL)
+# DATABASE (Render PostgreSQL OR Local SQLite)
 # --------------------------------------------------
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-if not DATABASE_URL:
-    raise Exception("DATABASE_URL not set in environment variables")
-
-db_url = urlparse(DATABASE_URL)
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": db_url.path[1:],  # remove leading slash
-        "USER": db_url.username,
-        "PASSWORD": db_url.password,
-        "HOST": db_url.hostname,
-        "PORT": db_url.port or 5432,
+if DATABASE_URL:
+    db_url = urlparse(DATABASE_URL)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": db_url.path.lstrip("/"),
+            "USER": db_url.username,
+            "PASSWORD": db_url.password,
+            "HOST": db_url.hostname,
+            "PORT": db_url.port or 5432,
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # --------------------------------------------------
 # PASSWORD VALIDATION
@@ -151,7 +156,7 @@ USE_I18N = True
 USE_TZ = True
 
 # --------------------------------------------------
-# STATIC & MEDIA FILES (Render + WhiteNoise)
+# STATIC & MEDIA FILES
 # --------------------------------------------------
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
