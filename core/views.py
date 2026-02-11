@@ -367,7 +367,6 @@ class GroupMemberViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # show members only for groups user belongs to
         return GroupMember.objects.filter(
             group__members__user=self.request.user
         )
@@ -382,12 +381,13 @@ class GroupMemberViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 1️⃣ Check group
         group = Group.objects.filter(id=group_id).first()
         if not group:
-            return Response({"detail": "Group not found"}, status=404)
+            return Response(
+                {"detail": "Group not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-        # 2️⃣ Check requester is member
         if not GroupMember.objects.filter(
             group=group, user=request.user
         ).exists():
@@ -396,28 +396,35 @@ class GroupMemberViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # 3️⃣ Find user by username / email / phone
+        # =========================
+        # 🔥 SMART USER DETECTION
+        # =========================
 
-        # Try username
+        user = None
+
+        # 1️⃣ Try username
         user = User.objects.filter(username=identifier).first()
 
-        # Try email
+        # 2️⃣ Try email
         if not user:
             user = User.objects.filter(email=identifier).first()
 
-        # Try phone (normalized)
+        # 3️⃣ Try phone (VERY IMPORTANT FIX)
         if not user:
+
             # Keep only digits
             normalized = "".join(filter(str.isdigit, identifier))
 
-            # If more than 10 digits (country code), take last 10
+            # Remove country code (keep last 10 digits)
             if len(normalized) > 10:
                 normalized = normalized[-10:]
+
+            # Remove leading zero
+            normalized = normalized.lstrip("0")
 
             profile = UserProfile.objects.filter(phone=normalized).first()
             if profile:
                 user = profile.user
-
 
         if not user:
             return Response(
@@ -425,7 +432,6 @@ class GroupMemberViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # 4️⃣ Prevent duplicate member
         if GroupMember.objects.filter(group=group, user=user).exists():
             return Response(
                 {"detail": "User already in group"},
@@ -433,10 +439,12 @@ class GroupMemberViewSet(viewsets.ModelViewSet):
             )
 
         member = GroupMember.objects.create(group=group, user=user)
+
         return Response(
             GroupMemberSerializer(member).data,
             status=status.HTTP_201_CREATED,
         )
+
 
 
 class WalletContributionViewSet(viewsets.ModelViewSet):
