@@ -397,15 +397,27 @@ class GroupMemberViewSet(viewsets.ModelViewSet):
             )
 
         # 3️⃣ Find user by username / email / phone
+
+        # Try username
         user = User.objects.filter(username=identifier).first()
 
+        # Try email
         if not user:
             user = User.objects.filter(email=identifier).first()
 
+        # Try phone (normalized)
         if not user:
-            profile = UserProfile.objects.filter(phone=identifier).first()
+            # Keep only digits
+            normalized = "".join(filter(str.isdigit, identifier))
+
+            # If more than 10 digits (country code), take last 10
+            if len(normalized) > 10:
+                normalized = normalized[-10:]
+
+            profile = UserProfile.objects.filter(phone=normalized).first()
             if profile:
                 user = profile.user
+
 
         if not user:
             return Response(
