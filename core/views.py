@@ -164,7 +164,17 @@ def register(request):
     username = request.data.get("username")
     password = request.data.get("password")
     email = request.data.get("email", "")
-    phone = request.data.get("phone")
+    raw_phone = request.data.get("phone")
+    phone = None
+
+    if raw_phone:
+        phone = "".join(filter(str.isdigit, raw_phone))
+
+        if len(phone) > 10:
+            phone = phone[-10:]
+
+        phone = phone.lstrip("0")
+
     profile_image = request.FILES.get("profile_image")
 
     if not username or not password:
@@ -422,9 +432,20 @@ class GroupMemberViewSet(viewsets.ModelViewSet):
             # Remove leading zero
             normalized = normalized.lstrip("0")
 
-            profile = UserProfile.objects.filter(phone=normalized).first()
-            if profile:
-                user = profile.user
+            profiles = UserProfile.objects.exclude(phone__isnull=True)
+
+            for profile in profiles:
+                stored = "".join(filter(str.isdigit, profile.phone))
+
+                if len(stored) > 10:
+                    stored = stored[-10:]
+
+                stored = stored.lstrip("0")
+
+                if stored == normalized:
+                    user = profile.user
+                    break
+
 
         if not user:
             return Response(
