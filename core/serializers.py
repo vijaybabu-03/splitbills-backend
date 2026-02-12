@@ -60,6 +60,7 @@ class GroupSerializer(serializers.ModelSerializer):
 # =========================
 class GroupMemberSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
+    is_creator = serializers.SerializerMethodField()
 
     class Meta:
         model = GroupMember
@@ -68,8 +69,11 @@ class GroupMemberSerializer(serializers.ModelSerializer):
             "group",
             "user",
             "joined_at",
+            "is_creator",
         ]
 
+    def get_is_creator(self, obj):
+        return obj.user == obj.group.created_by
 
 # =========================
 # WALLET CONTRIBUTION
