@@ -377,9 +377,15 @@ class GroupMemberViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return GroupMember.objects.filter(
+        group_id = self.request.query_params.get("group")
+        queryset = GroupMember.objects.filter(
             group__members__user=self.request.user
         )
+
+        if group_id:
+            queryset = queryset.filter(group_id=group_id)
+
+        return queryset
 
     def create(self, request, *args, **kwargs):
         group_id = request.data.get("group")
@@ -406,30 +412,19 @@ class GroupMemberViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # =========================
-        # 🔥 SMART USER DETECTION
-        # =========================
-
         user = None
 
-        # 1️⃣ Try username
         user = User.objects.filter(username=identifier).first()
 
-        # 2️⃣ Try email
         if not user:
             user = User.objects.filter(email=identifier).first()
 
-        # 3️⃣ Try phone (VERY IMPORTANT FIX)
         if not user:
-
-            # Keep only digits
             normalized = "".join(filter(str.isdigit, identifier))
 
-            # Remove country code (keep last 10 digits)
             if len(normalized) > 10:
                 normalized = normalized[-10:]
 
-            # Remove leading zero
             normalized = normalized.lstrip("0")
 
             profiles = UserProfile.objects.exclude(phone__isnull=True)
@@ -445,7 +440,6 @@ class GroupMemberViewSet(viewsets.ModelViewSet):
                 if stored == normalized:
                     user = profile.user
                     break
-
 
         if not user:
             return Response(
@@ -466,6 +460,28 @@ class GroupMemberViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    def destroy(self, request, *args, **kwargs):
+        member = self.get_object()
+        group = member.group
+
+        if group.created_by != request.user:
+            return Response(
+                {"detail": "Only group creator can remove members"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if member.user == group.created_by:
+            return Response(
+                {"detail": "Creator cannot remove themselves"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        member.delete()
+
+        return Response(
+            {"detail": "Member removed successfully"},
+            status=status.HTTP_204_NO_CONTENT,
+        )
 
 
 class WalletContributionViewSet(viewsets.ModelViewSet):

@@ -15,11 +15,9 @@ from .models import (
 # USER PROFILE SERIALIZER
 # =========================
 class UserProfileSerializer(serializers.ModelSerializer):
-    profile_image = serializers.ImageField(required=False)
-
     class Meta:
         model = UserProfile
-        fields = ["profile_image"]
+        fields = ["phone", "profile_image"]
 
 
 # =========================
@@ -34,11 +32,11 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 # =========================
-# GROUP SERIALIZER (🔥 UPDATED)
+# GROUP SERIALIZER
 # =========================
 class GroupSerializer(serializers.ModelSerializer):
     created_by = UserSerializer(read_only=True)
-    group_image = serializers.ImageField(required=False)
+    members_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Group
@@ -46,26 +44,39 @@ class GroupSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "group_type",
-            "group_image",      # 🔥 NEW
+            "group_image",
             "wallet_enabled",
             "created_by",
+            "members_count",
             "created_at",
         ]
 
+    def get_members_count(self, obj):
+        return obj.members.count()
+
 
 # =========================
-# GROUP MEMBER
+# GROUP MEMBER SERIALIZER
 # =========================
 class GroupMemberSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
     class Meta:
         model = GroupMember
-        fields = "__all__"
+        fields = [
+            "id",
+            "group",
+            "user",
+            "joined_at",
+        ]
 
 
 # =========================
 # WALLET CONTRIBUTION
 # =========================
 class WalletContributionSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
     class Meta:
         model = WalletContribution
         fields = "__all__"
@@ -75,15 +86,19 @@ class WalletContributionSerializer(serializers.ModelSerializer):
 # WALLET EXPENSE
 # =========================
 class WalletExpenseSerializer(serializers.ModelSerializer):
+    added_by = UserSerializer(read_only=True)
+
     class Meta:
         model = WalletExpense
         fields = "__all__"
 
 
 # =========================
-# EXPENSE
+# EXPENSE SERIALIZER
 # =========================
 class ExpenseSerializer(serializers.ModelSerializer):
+    paid_by = UserSerializer(read_only=True)
+
     class Meta:
         model = Expense
         fields = "__all__"
@@ -93,6 +108,8 @@ class ExpenseSerializer(serializers.ModelSerializer):
 # EXPENSE SPLIT
 # =========================
 class ExpenseSplitSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
     class Meta:
         model = ExpenseSplit
         fields = "__all__"
@@ -102,6 +119,9 @@ class ExpenseSplitSerializer(serializers.ModelSerializer):
 # SETTLEMENT
 # =========================
 class SettlementSerializer(serializers.ModelSerializer):
+    from_user = UserSerializer(read_only=True)
+    to_user = UserSerializer(read_only=True)
+
     class Meta:
         model = Settlement
         fields = "__all__"
