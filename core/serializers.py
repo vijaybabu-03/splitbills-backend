@@ -15,19 +15,77 @@ from .models import (
 # USER PROFILE SERIALIZER
 # =========================
 class UserProfileSerializer(serializers.ModelSerializer):
-    user = serializers.SerializerMethodField()
+    username = serializers.CharField(
+        source="user.username",
+        required=False
+    )
+    email = serializers.EmailField(
+        source="user.email",
+        read_only=True
+    )
 
     class Meta:
         model = UserProfile
-        fields = ["id", "user", "phone", "profile_image"]
+        fields = [
+            "id",
+            "username",
+            "email",
+            "phone",
+            "profile_image",
+        ]
 
-    def get_user(self, obj):
-        return {
-            "id": obj.user.id,
-            "username": obj.user.username,
-            "email": obj.user.email,
-        }
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop("user", {})
 
+        # ===============================
+        # 🔥 USERNAME VALIDATION
+        # ===============================
+        if "username" in user_data:
+            new_username = user_data["username"].strip()
+
+            if User.objects.filter(username=new_username)\
+                .exclude(id=instance.user.id)\
+                .exists():
+                raise serializers.ValidationError({
+                    "username": "Username already taken."
+                })
+
+            instance.user.username = new_username
+            instance.user.save()
+
+        # ===============================
+        # 🔥 PHONE VALIDATION
+        # ===============================
+        if "phone" in validated_data:
+            new_phone = validated_data["phone"]
+
+            if new_phone:
+                normalized = "".join(filter(str.isdigit, new_phone))
+
+                if len(normalized) > 10:
+                    normalized = normalized[-10:]
+
+                normalized = normalized.lstrip("0")
+
+                if UserProfile.objects.filter(phone=normalized)\
+                    .exclude(id=instance.id)\
+                    .exists():
+                    raise serializers.ValidationError({
+                        "phone": "Phone number already registered."
+                    })
+
+                instance.phone = normalized
+            else:
+                instance.phone = None
+
+        # ===============================
+        # PROFILE IMAGE UPDATE
+        # ===============================
+        if "profile_image" in validated_data:
+            instance.profile_image = validated_data["profile_image"]
+
+        instance.save()
+        return instance
 
 # =========================
 # USER SERIALIZER
