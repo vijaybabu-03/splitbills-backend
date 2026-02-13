@@ -15,9 +15,18 @@ from .models import (
 # USER PROFILE SERIALIZER
 # =========================
 class UserProfileSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+
     class Meta:
         model = UserProfile
-        fields = ["phone", "profile_image"]
+        fields = ["id", "user", "phone", "profile_image"]
+
+    def get_user(self, obj):
+        return {
+            "id": obj.user.id,
+            "username": obj.user.username,
+            "email": obj.user.email,
+        }
 
 
 # =========================
