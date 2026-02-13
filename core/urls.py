@@ -43,35 +43,26 @@ router.register("expense-splits", ExpenseSplitViewSet, basename="expense-splits"
 router.register("settlements", SettlementViewSet, basename="settlements")
 
 urlpatterns = [
-    # ===============================
+
     # 🔐 AUTH
-    # ===============================
-    path("register/", register),
-    path("auth/login/", login_with_identifier),
-    path("auth/google/", google_login),
+    path("register/", register, name="register"),
+    path("auth/login/", login_with_identifier, name="login"),
+    path("auth/google/", google_login, name="google-login"),
 
-    # ===============================
-    # 🔐 FORGOT / RESET PASSWORD
-    # ===============================
-    path("auth/forgot-password/", forgot_password),
-    path("auth/reset-password/", reset_password),
+    # 🔐 PASSWORD RESET
+    path("auth/forgot-password/", forgot_password, name="forgot-password"),
+    path("auth/reset-password/", reset_password, name="reset-password"),
 
-    # ===============================
-    # 👤 USER PROFILE
-    # ===============================
+    # 👤 PROFILE
     path("profile/", UserProfileView.as_view(), name="user-profile"),
 
-    # ===============================
-    # 📦 CRUD APIs
-    # ===============================
+    # CRUD
     path("", include(router.urls)),
 
-    # ===============================
     # 💸 UPI
-    # ===============================
     path("upi-link/", UpiLinkView.as_view(), name="upi-link"),
-    # 🔗 INVITES
-    path("groups/<int:group_id>/invite/", create_group_invite),
-    path("invites/<uuid:token>/join/", join_group_with_invite),
 
+    # 🔗 INVITES
+    path("groups/<int:group_id>/invite/", create_group_invite, name="create-group-invite"),
+    path("invites/<uuid:token>/join/", join_group_with_invite, name="join-group-invite"),
 ]
