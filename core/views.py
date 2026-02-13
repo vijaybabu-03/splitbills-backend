@@ -22,6 +22,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import parser_classes
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 
 from google.oauth2 import id_token
@@ -300,7 +301,7 @@ class UpiLinkView(APIView):
 # =====================================================
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request):
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
@@ -311,7 +312,7 @@ class UserProfileView(APIView):
         serializer = UserProfileSerializer(
             profile, data=request.data, partial=True
         )
-        serializer.is_valid(raise_exception=True)
+        serializer.is_valid(raise_exception=True)   
         serializer.save()
         return Response(serializer.data)
 
