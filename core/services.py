@@ -1,19 +1,30 @@
 from django.db.models import Sum
-from .models import Group, WalletContribution, WalletExpense
+from decimal import Decimal
 from collections import defaultdict
-from .models import Expense, ExpenseSplit
+
+from .models import (
+    Group,
+    WalletContribution,
+    WalletExpense,
+    Expense,
+    ExpenseSplit,
+    Settlement,
+)
 
 
+# ============================================================
+# ✅ WALLET SUMMARY
+# ============================================================
 def get_wallet_summary(group_id):
     group = Group.objects.get(id=group_id)
 
-    total_added = WalletContribution.objects.filter(group=group).aggregate(
-        total=Sum("amount")
-    )["total"] or 0
+    total_added = WalletContribution.objects.filter(
+        group=group
+    ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
 
-    total_spent = WalletExpense.objects.filter(group=group).aggregate(
-        total=Sum("amount")
-    )["total"] or 0
+    total_spent = WalletExpense.objects.filter(
+        group=group
+    ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
 
     remaining = total_added - total_spent
 
@@ -26,25 +37,62 @@ def get_wallet_summary(group_id):
         "remaining_balance": float(remaining),
     }
 
-def get_settle_up(group_id):
-    """
-    Net balance per user:
-    + means user should RECEIVE money
-    - means user should PAY money
-    """
+
+# ============================================================
+# ✅ CALCULATE NET BALANCE (USED BY TOTALS + BALANCES)
+# ============================================================
+def calculate_net_balances(group_id):
     expenses = Expense.objects.filter(group_id=group_id)
+    settlements = Settlement.objects.filter(
+        group_id=group_id,
+        status="PAID"
+    )
 
-    net = defaultdict(float)
+    net = defaultdict(Decimal)
 
+    # -----------------------
+    # Handle Expenses
+    # -----------------------
     for exp in expenses:
-        paid_by_id = exp.paid_by_id
-        net[paid_by_id] += float(exp.amount)
+        net[exp.paid_by_id] += exp.amount
 
         splits = ExpenseSplit.objects.filter(expense=exp)
         for sp in splits:
-            net[sp.user_id] -= float(sp.share_amount)
+            net[sp.user_id] -= sp.share_amount
 
-    # Separate receivers and payers
+    # -----------------------
+    # Handle Paid Settlements
+    # -----------------------
+    for s in settlements:
+        net[s.from_user_id] += s.amount
+        net[s.to_user_id] -= s.amount
+
+    return net
+
+
+# ============================================================
+# ✅ TOTALS TAB
+# ============================================================
+def get_totals(group_id):
+    net = calculate_net_balances(group_id)
+
+    result = []
+
+    for user_id, amount in net.items():
+        result.append({
+            "user_id": user_id,
+            "net_balance": float(round(amount, 2))
+        })
+
+    return result
+
+
+# ============================================================
+# ✅ BALANCES TAB (DEBT SIMPLIFICATION)
+# ============================================================
+def get_settle_up(group_id):
+    net = calculate_net_balances(group_id)
+
     receivers = []
     payers = []
 
@@ -54,7 +102,6 @@ def get_settle_up(group_id):
         elif amount < 0:
             payers.append([user_id, -amount])
 
-    # Create settlement transfers
     settlements = []
     i, j = 0, 0
 
@@ -67,7 +114,7 @@ def get_settle_up(group_id):
         settlements.append({
             "from_user": payer_id,
             "to_user": rec_id,
-            "amount": round(send_amt, 2)
+            "amount": float(round(send_amt, 2))
         })
 
         payers[i][1] -= send_amt

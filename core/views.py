@@ -368,6 +368,35 @@ class GroupViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def settle_up(self, request, pk=None):
         return Response(get_settle_up(pk))
+    
+    @action(detail=True, methods=["get"])
+    def totals(self, request, pk=None):
+        from .services import get_totals
+        return Response(get_totals(pk))
+    
+    @action(detail=True, methods=["post"])
+    def mark_settlement(self, request, pk=None):
+        from_user = request.data.get("from_user")
+        to_user = request.data.get("to_user")
+        amount = request.data.get("amount")
+
+        if not from_user or not to_user or not amount:
+            return Response(
+                {"detail": "from_user, to_user and amount required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        Settlement.objects.create(
+            group_id=pk,
+            from_user_id=from_user,
+            to_user_id=to_user,
+            amount=amount,
+            status="PAID",
+        )
+
+        return Response({"message": "Settlement recorded successfully"})
+
+
 
 # =====================================================
 # ✅ OTHER VIEWSETS (UNCHANGED)
