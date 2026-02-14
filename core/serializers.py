@@ -34,16 +34,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "profile_image",
         ]
 
-    # -----------------------------
-    # 🔥 VALIDATION
-    # -----------------------------
     def validate(self, attrs):
         user_data = attrs.get("user", {})
         phone = attrs.get("phone")
 
-        # =========================
+        # ======================
         # USERNAME VALIDATION
-        # =========================
+        # ======================
         if "username" in user_data:
             username = user_data["username"].strip()
 
@@ -52,31 +49,34 @@ class UserProfileSerializer(serializers.ModelSerializer):
                     "username": "Username cannot be empty."
                 })
 
-            # exclude current user if updating
+            qs = User.objects.all()
             if self.instance:
-                qs = User.objects.exclude(id=self.instance.user.id)
-            else:
-                qs = User.objects.all()
+                qs = qs.exclude(id=self.instance.user.id)
 
             if qs.filter(username=username).exists():
                 raise serializers.ValidationError({
                     "username": "Username already taken."
                 })
 
-        # =========================
+            user_data["username"] = username
+
+        # ======================
         # PHONE VALIDATION
-        # =========================
-        if phone:
+        # ======================
+        if phone is not None:
+
+            if phone == "":
+                attrs["phone"] = None
+                return attrs
+
             normalized = "".join(filter(str.isdigit, phone))
 
-            # keep only last 10 digits
             if len(normalized) >= 10:
                 normalized = normalized[-10:]
 
+            qs = UserProfile.objects.all()
             if self.instance:
-                qs = UserProfile.objects.exclude(id=self.instance.id)
-            else:
-                qs = UserProfile.objects.all()
+                qs = qs.exclude(id=self.instance.id)
 
             if qs.filter(phone=normalized).exists():
                 raise serializers.ValidationError({
@@ -87,29 +87,24 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
         return attrs
 
-    # -----------------------------
-    # 🔥 UPDATE METHOD
-    # -----------------------------
     def update(self, instance, validated_data):
         user_data = validated_data.pop("user", {})
 
-        # Update username safely
+        # Update username
         if "username" in user_data:
-            new_username = user_data["username"].strip()
-            instance.user.username = new_username
+            instance.user.username = user_data["username"]
             instance.user.save()
 
         # Update phone
         if "phone" in validated_data:
             instance.phone = validated_data["phone"]
 
-        # Update profile image
+        # Update image
         if "profile_image" in validated_data:
             instance.profile_image = validated_data["profile_image"]
 
         instance.save()
         return instance
-
 
 # =====================================================
 # 👤 USER SERIALIZER

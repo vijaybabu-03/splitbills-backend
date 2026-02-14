@@ -89,6 +89,10 @@ def login_with_identifier(request):
 
     refresh = RefreshToken.for_user(user)
 
+    # ✅ ADD USER DATA INTO TOKEN
+    refresh["username"] = user.username
+    refresh["email"] = user.email
+
     return Response(
         {
             "access": str(refresh.access_token),
@@ -146,6 +150,10 @@ def google_login(request):
 
     refresh = RefreshToken.for_user(user)
 
+    # ✅ ADD USER DATA INTO TOKEN
+    refresh["username"] = user.username
+    refresh["email"] = user.email
+
     return Response(
         {
             "access": str(refresh.access_token),
@@ -153,6 +161,7 @@ def google_login(request):
         },
         status=200,
     )
+
 
 
 # =====================================================
@@ -308,12 +317,23 @@ class UserProfileView(APIView):
         return Response(UserProfileSerializer(profile).data)
 
     def put(self, request):
+        return self._update(request)
+
+    def patch(self, request):
+        return self._update(request)
+
+    def _update(self, request):
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
         serializer = UserProfileSerializer(
-            profile, data=request.data, partial=True
+            profile,
+            data=request.data,
+            partial=True
         )
-        serializer.is_valid(raise_exception=True)   
+
+        serializer.is_valid(raise_exception=True)
         serializer.save()
+
         return Response(serializer.data)
 
 
