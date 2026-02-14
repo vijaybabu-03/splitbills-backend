@@ -12,7 +12,7 @@ from .models import (
 )
 
 # =====================================================
-# 🔐 USER PROFILE SERIALIZER
+# 🔐 USER PROFILE SERIALIZER (FINAL STABLE VERSION)
 # =====================================================
 class UserProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(
@@ -39,33 +39,46 @@ class UserProfileSerializer(serializers.ModelSerializer):
     # -----------------------------
     def validate(self, attrs):
         user_data = attrs.get("user", {})
-        username = user_data.get("username")
+        phone = attrs.get("phone")
 
-        # ✅ USERNAME VALIDATION
-        if username:
-            username = username.strip()
+        # =========================
+        # USERNAME VALIDATION
+        # =========================
+        if "username" in user_data:
+            username = user_data["username"].strip()
 
-            if User.objects.exclude(id=self.instance.user.id)\
-                .filter(username=username)\
-                .exists():
+            if not username:
+                raise serializers.ValidationError({
+                    "username": "Username cannot be empty."
+                })
+
+            # exclude current user if updating
+            if self.instance:
+                qs = User.objects.exclude(id=self.instance.user.id)
+            else:
+                qs = User.objects.all()
+
+            if qs.filter(username=username).exists():
                 raise serializers.ValidationError({
                     "username": "Username already taken."
                 })
 
-        # ✅ PHONE VALIDATION
-        phone = attrs.get("phone")
-
+        # =========================
+        # PHONE VALIDATION
+        # =========================
         if phone:
             normalized = "".join(filter(str.isdigit, phone))
 
-            if len(normalized) > 10:
+            # keep only last 10 digits
+            if len(normalized) >= 10:
                 normalized = normalized[-10:]
 
-            normalized = normalized.lstrip("0")
+            if self.instance:
+                qs = UserProfile.objects.exclude(id=self.instance.id)
+            else:
+                qs = UserProfile.objects.all()
 
-            if UserProfile.objects.exclude(id=self.instance.id)\
-                .filter(phone=normalized)\
-                .exists():
+            if qs.filter(phone=normalized).exists():
                 raise serializers.ValidationError({
                     "phone": "Phone number already registered."
                 })
