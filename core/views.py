@@ -113,18 +113,8 @@ def google_login(request):
         idinfo = id_token.verify_oauth2_token(
             token,
             requests.Request(),
-            settings.GOOGLE_CLIENT_ID,  # 👈 IMPORTANT
+            settings.GOOGLE_CLIENT_ID,
         )
-
-        if idinfo["iss"] not in [
-            "accounts.google.com",
-            "https://accounts.google.com",
-        ]:
-            return Response({"error": "Invalid issuer"}, status=400)
-
-        if idinfo["aud"] != settings.GOOGLE_CLIENT_ID:
-            return Response({"error": "Invalid audience"}, status=400)
-
     except ValueError:
         return Response({"error": "Invalid Google token"}, status=400)
 
@@ -134,14 +124,24 @@ def google_login(request):
     if not email:
         return Response({"error": "Email not found"}, status=400)
 
-    user, created = User.objects.get_or_create(
-        username=email,
-        defaults={"email": email, "first_name": name},
-    )
+    # 🔥 ALWAYS FIND USER BY EMAIL (NOT USERNAME)
+    user = User.objects.filter(email=email).first()
 
-    if created:
+    if not user:
+        # Create only if email doesn't exist
+        username = name.replace(" ", "").lower()
+
+        # Ensure unique username
+        if User.objects.filter(username=username).exists():
+            username = f"{username}{random.randint(1000,9999)}"
+
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+        )
         user.set_unusable_password()
         user.save()
+
         UserProfile.objects.create(user=user)
 
     refresh = RefreshToken.for_user(user)

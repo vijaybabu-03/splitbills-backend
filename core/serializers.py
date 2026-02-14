@@ -11,9 +11,9 @@ from .models import (
     UserProfile
 )
 
-# =========================
-# USER PROFILE SERIALIZER
-# =========================
+# =====================================================
+# 🔐 USER PROFILE SERIALIZER
+# =====================================================
 class UserProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(
         source="user.username",
@@ -34,62 +34,73 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "profile_image",
         ]
 
-    def update(self, instance, validated_data):
-        user_data = validated_data.pop("user", {})
+    # -----------------------------
+    # 🔥 VALIDATION
+    # -----------------------------
+    def validate(self, attrs):
+        user_data = attrs.get("user", {})
+        username = user_data.get("username")
 
-        # ===============================
-        # 🔥 USERNAME VALIDATION
-        # ===============================
-        if "username" in user_data:
-            new_username = user_data["username"].strip()
+        # ✅ USERNAME VALIDATION
+        if username:
+            username = username.strip()
 
-            if User.objects.filter(username=new_username)\
-                .exclude(id=instance.user.id)\
+            if User.objects.exclude(id=self.instance.user.id)\
+                .filter(username=username)\
                 .exists():
                 raise serializers.ValidationError({
                     "username": "Username already taken."
                 })
 
+        # ✅ PHONE VALIDATION
+        phone = attrs.get("phone")
+
+        if phone:
+            normalized = "".join(filter(str.isdigit, phone))
+
+            if len(normalized) > 10:
+                normalized = normalized[-10:]
+
+            normalized = normalized.lstrip("0")
+
+            if UserProfile.objects.exclude(id=self.instance.id)\
+                .filter(phone=normalized)\
+                .exists():
+                raise serializers.ValidationError({
+                    "phone": "Phone number already registered."
+                })
+
+            attrs["phone"] = normalized
+
+        return attrs
+
+    # -----------------------------
+    # 🔥 UPDATE METHOD
+    # -----------------------------
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop("user", {})
+
+        # Update username safely
+        if "username" in user_data:
+            new_username = user_data["username"].strip()
             instance.user.username = new_username
             instance.user.save()
 
-        # ===============================
-        # 🔥 PHONE VALIDATION
-        # ===============================
+        # Update phone
         if "phone" in validated_data:
-            new_phone = validated_data["phone"]
+            instance.phone = validated_data["phone"]
 
-            if new_phone:
-                normalized = "".join(filter(str.isdigit, new_phone))
-
-                if len(normalized) > 10:
-                    normalized = normalized[-10:]
-
-                normalized = normalized.lstrip("0")
-
-                if UserProfile.objects.filter(phone=normalized)\
-                    .exclude(id=instance.id)\
-                    .exists():
-                    raise serializers.ValidationError({
-                        "phone": "Phone number already registered."
-                    })
-
-                instance.phone = normalized
-            else:
-                instance.phone = None
-
-        # ===============================
-        # PROFILE IMAGE UPDATE
-        # ===============================
+        # Update profile image
         if "profile_image" in validated_data:
             instance.profile_image = validated_data["profile_image"]
 
         instance.save()
         return instance
 
-# =========================
-# USER SERIALIZER
-# =========================
+
+# =====================================================
+# 👤 USER SERIALIZER
+# =====================================================
 class UserSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(read_only=True)
 
@@ -98,9 +109,9 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ["id", "username", "email", "profile"]
 
 
-# =========================
-# GROUP SERIALIZER
-# =========================
+# =====================================================
+# 👥 GROUP SERIALIZER
+# =====================================================
 class GroupSerializer(serializers.ModelSerializer):
     created_by = UserSerializer(read_only=True)
     members_count = serializers.SerializerMethodField()
@@ -122,9 +133,9 @@ class GroupSerializer(serializers.ModelSerializer):
         return obj.members.count()
 
 
-# =========================
-# GROUP MEMBER SERIALIZER
-# =========================
+# =====================================================
+# 👥 GROUP MEMBER SERIALIZER
+# =====================================================
 class GroupMemberSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     is_creator = serializers.SerializerMethodField()
@@ -142,9 +153,10 @@ class GroupMemberSerializer(serializers.ModelSerializer):
     def get_is_creator(self, obj):
         return obj.user == obj.group.created_by
 
-# =========================
-# WALLET CONTRIBUTION
-# =========================
+
+# =====================================================
+# 💰 WALLET CONTRIBUTION
+# =====================================================
 class WalletContributionSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
 
@@ -153,9 +165,9 @@ class WalletContributionSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-# =========================
-# WALLET EXPENSE
-# =========================
+# =====================================================
+# 💳 WALLET EXPENSE
+# =====================================================
 class WalletExpenseSerializer(serializers.ModelSerializer):
     added_by = UserSerializer(read_only=True)
 
@@ -164,9 +176,9 @@ class WalletExpenseSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-# =========================
-# EXPENSE SERIALIZER
-# =========================
+# =====================================================
+# 🧾 EXPENSE
+# =====================================================
 class ExpenseSerializer(serializers.ModelSerializer):
     paid_by = UserSerializer(read_only=True)
 
@@ -175,9 +187,9 @@ class ExpenseSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-# =========================
-# EXPENSE SPLIT
-# =========================
+# =====================================================
+# 📊 EXPENSE SPLIT
+# =====================================================
 class ExpenseSplitSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
 
@@ -186,9 +198,9 @@ class ExpenseSplitSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-# =========================
-# SETTLEMENT
-# =========================
+# =====================================================
+# 🤝 SETTLEMENT
+# =====================================================
 class SettlementSerializer(serializers.ModelSerializer):
     from_user = UserSerializer(read_only=True)
     to_user = UserSerializer(read_only=True)
